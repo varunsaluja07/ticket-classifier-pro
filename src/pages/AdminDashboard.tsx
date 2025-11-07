@@ -1,9 +1,10 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { LogOut, Download, RefreshCw } from "lucide-react";
+import { LogOut, Download, RefreshCw, BarChart3, AlertCircle, CheckCircle, Clock } from "lucide-react";
 import { TicketCard } from "@/components/TicketCard";
 
 interface Ticket {
@@ -149,15 +150,16 @@ const AdminDashboard = () => {
   };
 
   const exportToCSV = () => {
-    const headers = ["Subject", "Customer Name", "Email", "Status", "Category", "Priority", "SLA", "Created At"];
+    const headers = ["Subject", "Customer Name", "Email", "Status", "Category", "Priority", "SLA", "AI Response", "Created At"];
     const csvData = tickets.map((t) => [
-      t.subject,
-      t.customer_name,
+      `"${t.subject.replace(/"/g, '""')}"`,
+      `"${t.customer_name.replace(/"/g, '""')}"`,
       t.customer_email,
       t.status,
       t.category || "",
       t.priority || "",
       t.sla || "",
+      t.ai_response ? `"${t.ai_response.replace(/"/g, '""')}"` : "",
       new Date(t.created_at).toLocaleString(),
     ]);
     const csvContent = [headers, ...csvData].map((row) => row.join(",")).join("\n");
@@ -168,6 +170,37 @@ const AdminDashboard = () => {
     a.download = `tickets-${new Date().toISOString()}.csv`;
     a.click();
   };
+
+  const analytics = useMemo(() => {
+    const categoryStats = tickets.reduce((acc, ticket) => {
+      const cat = ticket.category || "Uncategorized";
+      acc[cat] = (acc[cat] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+
+    const priorityStats = tickets.reduce((acc, ticket) => {
+      const pri = ticket.priority || "unassigned";
+      acc[pri] = (acc[pri] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+
+    const statusStats = tickets.reduce((acc, ticket) => {
+      acc[ticket.status] = (acc[ticket.status] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+
+    const categorizedCount = tickets.filter(t => t.category).length;
+    const avgResponseTime = tickets.filter(t => t.sla).length;
+
+    return {
+      total: tickets.length,
+      categorized: categorizedCount,
+      categoryStats,
+      priorityStats,
+      statusStats,
+      avgResponseTime,
+    };
+  }, [tickets]);
 
   if (!user || !isAdmin) return null;
 
@@ -199,6 +232,152 @@ const AdminDashboard = () => {
           </Button>
         </div>
 
+        {/* Analytics Section */}
+        <div className="mb-8">
+          <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+            <BarChart3 className="w-5 h-5" />
+            Analytics Overview
+          </h2>
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-6">
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">
+                  Total Tickets
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-3xl font-bold">{analytics.total}</div>
+              </CardContent>
+            </Card>
+            
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">
+                  Categorized
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-3xl font-bold text-green-600">
+                  {analytics.categorized}
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {analytics.total > 0 ? Math.round((analytics.categorized / analytics.total) * 100) : 0}% of total
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">
+                  High Priority
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-3xl font-bold text-red-600">
+                  {analytics.priorityStats.high || 0}
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">
+                  Open Tickets
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-3xl font-bold text-blue-600">
+                  {analytics.statusStats.open || 0}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">By Category</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  {Object.entries(analytics.categoryStats).map(([category, count]) => (
+                    <div key={category} className="flex justify-between items-center">
+                      <span className="text-sm">{category}</span>
+                      <div className="flex items-center gap-2">
+                        <div className="w-24 h-2 bg-secondary rounded-full overflow-hidden">
+                          <div 
+                            className="h-full bg-primary" 
+                            style={{ width: `${(count / analytics.total) * 100}%` }}
+                          />
+                        </div>
+                        <span className="text-sm font-semibold w-8 text-right">{count}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">By Priority</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  {Object.entries(analytics.priorityStats).map(([priority, count]) => (
+                    <div key={priority} className="flex justify-between items-center">
+                      <span className="text-sm capitalize flex items-center gap-2">
+                        {priority === "high" && <AlertCircle className="w-4 h-4 text-red-600" />}
+                        {priority === "medium" && <Clock className="w-4 h-4 text-yellow-600" />}
+                        {priority === "low" && <CheckCircle className="w-4 h-4 text-green-600" />}
+                        {priority}
+                      </span>
+                      <div className="flex items-center gap-2">
+                        <div className="w-24 h-2 bg-secondary rounded-full overflow-hidden">
+                          <div 
+                            className={`h-full ${
+                              priority === "high" ? "bg-red-600" :
+                              priority === "medium" ? "bg-yellow-600" :
+                              "bg-green-600"
+                            }`}
+                            style={{ width: `${(count / analytics.total) * 100}%` }}
+                          />
+                        </div>
+                        <span className="text-sm font-semibold w-8 text-right">{count}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">By Status</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  {Object.entries(analytics.statusStats).map(([status, count]) => (
+                    <div key={status} className="flex justify-between items-center">
+                      <span className="text-sm capitalize">{status}</span>
+                      <div className="flex items-center gap-2">
+                        <div className="w-24 h-2 bg-secondary rounded-full overflow-hidden">
+                          <div 
+                            className="h-full bg-primary" 
+                            style={{ width: `${(count / analytics.total) * 100}%` }}
+                          />
+                        </div>
+                        <span className="text-sm font-semibold w-8 text-right">{count}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+
+        <h2 className="text-xl font-semibold mb-4">All Tickets</h2>
         {loading ? (
           <div className="text-center py-12">Loading tickets...</div>
         ) : tickets.length === 0 ? (

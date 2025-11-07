@@ -244,7 +244,7 @@ const UserDashboard = () => {
                   Category: {aiResponse.category}
                 </Badge>
                 <Badge 
-                  variant={aiResponse.priority === 'high' ? 'destructive' : 'secondary'}
+                  variant={aiResponse.priority === "high" ? "destructive" : "secondary"}
                   className="text-sm"
                 >
                   Priority: {aiResponse.priority.toUpperCase()}
