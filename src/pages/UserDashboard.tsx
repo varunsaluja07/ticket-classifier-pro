@@ -77,6 +77,11 @@ const UserDashboard = () => {
 
       if (insertError) throw insertError;
 
+      toast({
+        title: "Ticket Created",
+        description: "Analyzing your ticket with AI...",
+      });
+
       // Call AI categorization
       const categorizationResponse = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/categorize-ticket`,
@@ -94,7 +99,8 @@ const UserDashboard = () => {
       );
 
       if (!categorizationResponse.ok) {
-        throw new Error("Failed to categorize ticket");
+        const errorData = await categorizationResponse.json();
+        throw new Error(errorData.error || "Failed to categorize ticket");
       }
 
       const categorization = await categorizationResponse.json();
@@ -110,7 +116,10 @@ const UserDashboard = () => {
         })
         .eq("id", ticketData.id);
 
-      if (updateError) throw updateError;
+      if (updateError) {
+        console.error("Update error:", updateError);
+        // Continue anyway - ticket was created
+      }
 
       setAiResponse(categorization);
 
@@ -126,6 +135,7 @@ const UserDashboard = () => {
         customerEmail: "",
       });
     } catch (error: any) {
+      console.error("Ticket creation error:", error);
       if (error instanceof z.ZodError) {
         toast({
           title: "Validation Error",
