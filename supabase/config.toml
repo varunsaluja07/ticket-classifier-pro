@@ -1,0 +1,4 @@
+project_id = "pclmcdyjrweessgtyhie"
+
+[functions.categorize-ticket]
+verify_jwt = false
