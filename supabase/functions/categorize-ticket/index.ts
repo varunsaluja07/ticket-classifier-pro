@@ -23,8 +23,7 @@ serve(async (req) => {
     const systemPrompt = `You are an AI support ticket categorization system. Analyze support tickets and provide:
 1. Category (one of: Technical, Billing, Feature Request, Bug Report, General)
 2. Priority (one of: high, medium, low)
-3. SLA (Service Level Agreement): Response time based on priority - High: 4 hours, Medium: 8 hours, Low: 24-48 hours
-4. A professional, helpful response template
+3. A professional, helpful response template
 
 Base priority on urgency indicators like "urgent", "critical", "not working", "broken", etc.`;
 
@@ -33,7 +32,7 @@ Subject: ${subject}
 Description: ${description}
 Customer Email: ${customerEmail}
 
-Provide a JSON response with: category, priority, sla, and suggestedResponse.`;
+Provide a JSON response with: category, priority, and suggestedResponse.`;
 
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
@@ -63,17 +62,12 @@ Provide a JSON response with: category, priority, sla, and suggestedResponse.`;
                   type: 'string',
                   enum: ['high', 'medium', 'low']
                 },
-                sla: {
-                  type: 'string',
-                  enum: ['4 hours', '8 hours', '24 hours', '48 hours'],
-                  description: 'Service Level Agreement response time'
-                },
                 suggestedResponse: {
                   type: 'string',
                   description: 'A professional response template for the customer'
                 }
               },
-              required: ['category', 'priority', 'sla', 'suggestedResponse'],
+              required: ['category', 'priority', 'suggestedResponse'],
               additionalProperties: false
             }
           }
@@ -112,6 +106,15 @@ Provide a JSON response with: category, priority, sla, and suggestedResponse.`;
     }
 
     const result = JSON.parse(toolCall.function.arguments);
+    
+    // Calculate SLA based on priority
+    const slaMap: Record<string, string> = {
+      'high': '1 day',
+      'medium': '2 days',
+      'low': '3 days'
+    };
+    result.sla = slaMap[result.priority] || '2 days';
+    
     console.log('Categorization result:', result);
 
     return new Response(

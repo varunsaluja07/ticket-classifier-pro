@@ -258,7 +258,7 @@ const AdminDashboard = () => {
             Refresh
           </Button>
           <Button onClick={categorizeOpenTickets} variant="default">
-            Categorize Open Tickets
+            Categorize with AI
           </Button>
           <Button onClick={exportToJSON} variant="outline">
             <Download className="w-4 h-4 mr-2" />
@@ -327,6 +327,14 @@ const AdminDashboard = () => {
                 <div className="text-3xl font-bold text-blue-600">
                   {analytics.statusStats.open || 0}
                 </div>
+                <Button 
+                  onClick={categorizeOpenTickets} 
+                  variant="outline" 
+                  size="sm"
+                  className="mt-3 w-full"
+                >
+                  Categorize with AI
+                </Button>
               </CardContent>
             </Card>
           </div>
