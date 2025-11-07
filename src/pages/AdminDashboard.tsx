@@ -26,6 +26,7 @@ const AdminDashboard = () => {
   const [isAdmin, setIsAdmin] = useState(false);
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isProcessing, setIsProcessing] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -207,6 +208,55 @@ const AdminDashboard = () => {
     });
   };
 
+  const suggestResponsesForOpenTickets = async () => {
+    const openTickets = tickets.filter(t => t.status === "open");
+    
+    if (openTickets.length === 0) {
+      toast({
+        title: "No Open Tickets",
+        description: "There are no open tickets to generate responses for",
+      });
+      return;
+    }
+
+    setIsProcessing(true);
+    toast({
+      title: "Generating AI Responses",
+      description: `Processing ${openTickets.length} open tickets...`,
+    });
+
+    let successCount = 0;
+    let errorCount = 0;
+
+    for (const ticket of openTickets) {
+      try {
+        const { error } = await supabase.functions.invoke('suggest-response', {
+          body: {
+            ticketId: ticket.id,
+            subject: ticket.subject,
+            description: ticket.description,
+            customerName: ticket.customer_name
+          }
+        });
+
+        if (error) throw error;
+        successCount++;
+      } catch (error) {
+        console.error(`Failed to generate response for ticket ${ticket.id}:`, error);
+        errorCount++;
+      }
+    }
+    
+    await loadTickets();
+    setIsProcessing(false);
+    
+    toast({
+      title: "AI Response Generation Complete",
+      description: `${successCount} succeeded, ${errorCount} failed`,
+      variant: errorCount > 0 ? "destructive" : "default",
+    });
+  };
+
   const exportToJSON = () => {
     const dataStr = JSON.stringify(tickets, null, 2);
     const dataUri = "data:application/json;charset=utf-8," + encodeURIComponent(dataStr);
@@ -290,8 +340,11 @@ const AdminDashboard = () => {
             <RefreshCw className="w-4 h-4 mr-2" />
             Refresh
           </Button>
-          <Button onClick={categorizeOpenTickets} variant="default">
+          <Button onClick={categorizeOpenTickets} variant="default" disabled={isProcessing}>
             Categorize with AI
+          </Button>
+          <Button onClick={suggestResponsesForOpenTickets} variant="secondary" disabled={isProcessing}>
+            Suggest AI Responses for All Open Tickets
           </Button>
           <Button onClick={exportToJSON} variant="outline">
             <Download className="w-4 h-4 mr-2" />
