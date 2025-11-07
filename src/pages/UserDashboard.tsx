@@ -8,9 +8,10 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { LogOut, Plus, CheckCircle, Clock } from "lucide-react";
+import { LogOut, Plus, CheckCircle, Clock, Ticket } from "lucide-react";
 import { z } from "zod";
 import { LoadingModal } from "@/components/LoadingModal";
+import { UserTicketCard } from "@/components/UserTicketCard";
 
 const ticketSchema = z.object({
   subject: z.string().min(1, "Subject is required").max(200),
@@ -27,6 +28,8 @@ const UserDashboard = () => {
     customerName: "",
     customerEmail: "",
   });
+  const [myTickets, setMyTickets] = useState<any[]>([]);
+  const [ticketUpdates, setTicketUpdates] = useState<Record<string, any[]>>({});
   const [loading, setLoading] = useState(false);
   const [isProcessingAI, setIsProcessingAI] = useState(false);
   const [aiResponse, setAiResponse] = useState<{
@@ -51,6 +54,11 @@ const UserDashboard = () => {
         }
         
         setUser(session?.user || null);
+        
+        // Load user's tickets if authenticated
+        if (session?.user) {
+          loadMyTickets(session.user.id);
+        }
       } catch (error) {
         console.error("Auth check failed:", error);
         // Allow app to continue without auth
@@ -62,10 +70,55 @@ const UserDashboard = () => {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user || null);
+      if (session?.user) {
+        loadMyTickets(session.user.id);
+      } else {
+        setMyTickets([]);
+        setTicketUpdates({});
+      }
     });
 
     return () => subscription.unsubscribe();
   }, []);
+
+  const loadMyTickets = async (userId: string) => {
+    try {
+      const { data: tickets, error: ticketsError } = await supabase
+        .from("tickets")
+        .select("*")
+        .eq("created_by", userId)
+        .order("created_at", { ascending: false });
+
+      if (ticketsError) throw ticketsError;
+
+      setMyTickets(tickets || []);
+
+      // Load updates for each ticket
+      if (tickets && tickets.length > 0) {
+        const ticketIds = tickets.map(t => t.id);
+        const { data: updates, error: updatesError } = await supabase
+          .from("ticket_updates")
+          .select("*")
+          .in("ticket_id", ticketIds)
+          .order("created_at", { ascending: true });
+
+        if (updatesError) throw updatesError;
+
+        // Group updates by ticket_id
+        const groupedUpdates: Record<string, any[]> = {};
+        updates?.forEach(update => {
+          if (!groupedUpdates[update.ticket_id]) {
+            groupedUpdates[update.ticket_id] = [];
+          }
+          groupedUpdates[update.ticket_id].push(update);
+        });
+
+        setTicketUpdates(groupedUpdates);
+      }
+    } catch (error) {
+      console.error("Error loading tickets:", error);
+    }
+  };
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
@@ -162,6 +215,11 @@ const UserDashboard = () => {
         customerName: "",
         customerEmail: "",
       });
+
+      // Reload tickets if user is authenticated
+      if (user) {
+        loadMyTickets(user.id);
+      }
     } catch (error: any) {
       console.error("Ticket creation error:", error);
       setIsProcessingAI(false);
@@ -212,6 +270,13 @@ const UserDashboard = () => {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
+            {user && (
+              <div className="p-3 bg-primary/10 rounded-lg border border-primary/20 mb-4">
+                <p className="text-sm text-primary font-medium">
+                  💡 Tip: After submitting, you'll be able to view your tickets and add more information below!
+                </p>
+              </div>
+            )}
             <div className="space-y-2">
               <Label htmlFor="subject">Subject</Label>
               <Input
@@ -301,6 +366,26 @@ const UserDashboard = () => {
               </p>
             </CardContent>
           </Card>
+        )}
+
+        {user && myTickets.length > 0 && (
+          <div className="max-w-5xl mx-auto">
+            <div className="flex items-center gap-2 mb-4">
+              <Ticket className="w-5 h-5" />
+              <h2 className="text-xl font-semibold">My Tickets</h2>
+              <Badge variant="secondary">{myTickets.length}</Badge>
+            </div>
+            <div className="grid gap-4 md:grid-cols-2">
+              {myTickets.map((ticket) => (
+                <UserTicketCard
+                  key={ticket.id}
+                  ticket={ticket}
+                  updates={ticketUpdates[ticket.id] || []}
+                  onUpdateAdded={() => loadMyTickets(user.id)}
+                />
+              ))}
+            </div>
+          </div>
         )}
       </div>
     </div>

@@ -35,6 +35,41 @@ export type Database = {
         }
         Relationships: []
       }
+      ticket_updates: {
+        Row: {
+          attachment_url: string | null
+          created_at: string
+          id: string
+          message: string
+          ticket_id: string
+          user_id: string
+        }
+        Insert: {
+          attachment_url?: string | null
+          created_at?: string
+          id?: string
+          message: string
+          ticket_id: string
+          user_id: string
+        }
+        Update: {
+          attachment_url?: string | null
+          created_at?: string
+          id?: string
+          message?: string
+          ticket_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ticket_updates_ticket_id_fkey"
+            columns: ["ticket_id"]
+            isOneToOne: false
+            referencedRelation: "tickets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tickets: {
         Row: {
           ai_response: string | null
