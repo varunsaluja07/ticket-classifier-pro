@@ -26,11 +26,10 @@ const priorityColors = {
 };
 
 const categoryColors = {
+  "Login issues": "bg-[hsl(var(--category-login))] text-white",
+  "Account Access": "bg-[hsl(var(--category-account))] text-white",
   Technical: "bg-[hsl(var(--category-technical))] text-white",
-  Billing: "bg-[hsl(var(--category-billing))] text-white",
-  "Feature Request": "bg-[hsl(var(--category-feature))] text-white",
-  "Bug Report": "bg-[hsl(var(--category-bug))] text-white",
-  General: "bg-[hsl(var(--category-general))] text-white",
+  Feedback: "bg-[hsl(var(--category-feedback))] text-white",
 };
 
 export const TicketCard = ({ ticket, onCategorize }: TicketCardProps) => {

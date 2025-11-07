@@ -22,11 +22,17 @@ serve(async (req) => {
     }
 
     const systemPrompt = `You are an AI support ticket categorization system. Analyze support tickets and provide:
-1. Category (one of: Technical, Billing, Feature Request, Bug Report, General)
+1. Category (one of: Login issues, Account Access, Technical, Feedback)
 2. Priority (one of: high, medium, low)
 3. A professional, helpful response template
 
-Base priority on urgency indicators like "urgent", "critical", "not working", "broken", etc.`;
+Categories guide:
+- Login issues: Problems with signing in, password resets, authentication failures
+- Account Access: Issues with account permissions, settings, or access restrictions
+- Technical: General technical problems, bugs, system errors, performance issues
+- Feedback: Feature requests, suggestions, praise, or general comments
+
+Base priority on urgency indicators like "urgent", "critical", "not working", "broken", "can't access", etc.`;
 
     const userPrompt = `Categorize this support ticket:
 Subject: ${subject}
@@ -57,7 +63,7 @@ Provide a JSON response with: category, priority, and suggestedResponse.`;
               properties: {
                 category: {
                   type: 'string',
-                  enum: ['Technical', 'Billing', 'Feature Request', 'Bug Report', 'General']
+                  enum: ['Login issues', 'Account Access', 'Technical', 'Feedback']
                 },
                 priority: {
                   type: 'string',

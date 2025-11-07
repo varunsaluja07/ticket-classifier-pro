@@ -57,6 +57,17 @@ export default {
           border: "hsl(var(--sidebar-border))",
           ring: "hsl(var(--sidebar-ring))",
         },
+        status: {
+          high: "hsl(var(--status-high))",
+          medium: "hsl(var(--status-medium))",
+          low: "hsl(var(--status-low))",
+        },
+        category: {
+          login: "hsl(var(--category-login))",
+          account: "hsl(var(--category-account))",
+          technical: "hsl(var(--category-technical))",
+          feedback: "hsl(var(--category-feedback))",
+        },
       },
       borderRadius: {
         lg: "var(--radius)",
