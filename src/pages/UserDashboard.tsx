@@ -4,10 +4,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { LogOut, Plus } from "lucide-react";
+import { LogOut, Plus, CheckCircle, Clock } from "lucide-react";
 import { z } from "zod";
 
 const ticketSchema = z.object({
@@ -26,31 +27,29 @@ const UserDashboard = () => {
     customerEmail: "",
   });
   const [loading, setLoading] = useState(false);
+  const [aiResponse, setAiResponse] = useState<{
+    category: string;
+    priority: string;
+    sla: string;
+    suggestedResponse: string;
+  } | null>(null);
   const navigate = useNavigate();
   const { toast } = useToast();
 
   useEffect(() => {
     const checkUser = async () => {
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        navigate("/auth");
-        return;
-      }
-      setUser(session.user);
+      setUser(session?.user || null);
     };
 
     checkUser();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (!session) {
-        navigate("/auth");
-      } else {
-        setUser(session.user);
-      }
+      setUser(session?.user || null);
     });
 
     return () => subscription.unsubscribe();
-  }, [navigate]);
+  }, []);
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
@@ -61,20 +60,63 @@ const UserDashboard = () => {
     try {
       const validated = ticketSchema.parse(newTicket);
       setLoading(true);
+      setAiResponse(null);
 
-      const { error } = await supabase.from("tickets").insert({
-        subject: validated.subject,
-        description: validated.description,
-        customer_name: validated.customerName,
-        customer_email: validated.customerEmail,
-        created_by: user?.id,
-      });
+      // Insert ticket into database
+      const { data: ticketData, error: insertError } = await supabase
+        .from("tickets")
+        .insert({
+          subject: validated.subject,
+          description: validated.description,
+          customer_name: validated.customerName,
+          customer_email: validated.customerEmail,
+          created_by: user?.id || null,
+        })
+        .select()
+        .single();
 
-      if (error) throw error;
+      if (insertError) throw insertError;
+
+      // Call AI categorization
+      const categorizationResponse = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/categorize-ticket`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            subject: validated.subject,
+            description: validated.description,
+            customerEmail: validated.customerEmail,
+          }),
+        }
+      );
+
+      if (!categorizationResponse.ok) {
+        throw new Error("Failed to categorize ticket");
+      }
+
+      const categorization = await categorizationResponse.json();
+      
+      // Update ticket with AI categorization
+      const { error: updateError } = await supabase
+        .from("tickets")
+        .update({
+          category: categorization.category,
+          priority: categorization.priority,
+          sla: categorization.sla,
+          ai_response: categorization.suggestedResponse,
+        })
+        .eq("id", ticketData.id);
+
+      if (updateError) throw updateError;
+
+      setAiResponse(categorization);
 
       toast({
         title: "Success",
-        description: "Ticket created successfully!",
+        description: "Ticket created and categorized successfully!",
       });
 
       setNewTicket({
@@ -102,27 +144,30 @@ const UserDashboard = () => {
     }
   };
 
-  if (!user) return null;
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-background to-secondary/20">
       <nav className="border-b bg-card">
         <div className="container mx-auto px-4 py-4 flex justify-between items-center">
-          <h1 className="text-2xl font-bold">Support Dashboard</h1>
-          <Button variant="outline" onClick={handleSignOut}>
-            <LogOut className="w-4 h-4 mr-2" />
-            Sign Out
-          </Button>
+          <h1 className="text-2xl font-bold">Support Portal</h1>
+          {user && (
+            <Button variant="outline" onClick={handleSignOut}>
+              <LogOut className="w-4 h-4 mr-2" />
+              Sign Out
+            </Button>
+          )}
         </div>
       </nav>
 
-      <div className="container mx-auto px-4 py-8">
+      <div className="container mx-auto px-4 py-8 space-y-6">
         <Card className="max-w-2xl mx-auto">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Plus className="w-5 h-5" />
-              Create New Ticket
+              Create New Support Ticket
             </CardTitle>
+            <CardDescription>
+              Submit your issue and receive an instant AI-powered response
+            </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
@@ -174,6 +219,47 @@ const UserDashboard = () => {
             </Button>
           </CardContent>
         </Card>
+
+        {aiResponse && (
+          <Card className="max-w-2xl mx-auto border-primary/20 bg-primary/5">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-primary">
+                <CheckCircle className="w-5 h-5" />
+                Ticket Categorized Successfully
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex gap-2 flex-wrap">
+                <Badge variant="secondary" className="text-sm">
+                  Category: {aiResponse.category}
+                </Badge>
+                <Badge 
+                  variant={aiResponse.priority === 'high' ? 'destructive' : 'secondary'}
+                  className="text-sm"
+                >
+                  Priority: {aiResponse.priority.toUpperCase()}
+                </Badge>
+                <Badge variant="outline" className="text-sm flex items-center gap-1">
+                  <Clock className="w-3 h-3" />
+                  SLA: {aiResponse.sla}
+                </Badge>
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-base font-semibold">Automated Response:</Label>
+                <div className="p-4 bg-background rounded-lg border">
+                  <p className="text-sm leading-relaxed whitespace-pre-wrap">
+                    {aiResponse.suggestedResponse}
+                  </p>
+                </div>
+              </div>
+
+              <p className="text-xs text-muted-foreground">
+                Our support team will review your ticket and respond within the SLA timeframe.
+              </p>
+            </CardContent>
+          </Card>
+        )}
       </div>
     </div>
   );
