@@ -38,8 +38,22 @@ const UserDashboard = () => {
 
   useEffect(() => {
     const checkUser = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      setUser(session?.user || null);
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession();
+        
+        if (error) {
+          console.error("Auth session error:", error);
+          // Continue without auth - allow anonymous ticket submission
+          setUser(null);
+          return;
+        }
+        
+        setUser(session?.user || null);
+      } catch (error) {
+        console.error("Auth check failed:", error);
+        // Allow app to continue without auth
+        setUser(null);
+      }
     };
 
     checkUser();
