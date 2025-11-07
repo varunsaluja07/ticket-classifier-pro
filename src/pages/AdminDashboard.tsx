@@ -139,6 +139,41 @@ const AdminDashboard = () => {
     }
   };
 
+  const categorizeOpenTickets = async () => {
+    const openTickets = tickets.filter(t => t.status === "open" && !t.category);
+    
+    if (openTickets.length === 0) {
+      toast({
+        title: "No Open Tickets",
+        description: "All open tickets are already categorized",
+      });
+      return;
+    }
+
+    toast({
+      title: "Categorizing",
+      description: `Processing ${openTickets.length} open tickets...`,
+    });
+
+    let successCount = 0;
+    let errorCount = 0;
+
+    for (const ticket of openTickets) {
+      try {
+        await categorizeTicket(ticket);
+        successCount++;
+      } catch (error) {
+        errorCount++;
+      }
+    }
+
+    toast({
+      title: "Bulk Categorization Complete",
+      description: `${successCount} succeeded, ${errorCount} failed`,
+      variant: errorCount > 0 ? "destructive" : "default",
+    });
+  };
+
   const exportToJSON = () => {
     const dataStr = JSON.stringify(tickets, null, 2);
     const dataUri = "data:application/json;charset=utf-8," + encodeURIComponent(dataStr);
@@ -222,13 +257,16 @@ const AdminDashboard = () => {
             <RefreshCw className="w-4 h-4 mr-2" />
             Refresh
           </Button>
+          <Button onClick={categorizeOpenTickets} variant="default">
+            Categorize Open Tickets
+          </Button>
           <Button onClick={exportToJSON} variant="outline">
             <Download className="w-4 h-4 mr-2" />
-            Export JSON
+            Export All JSON
           </Button>
           <Button onClick={exportToCSV} variant="outline">
             <Download className="w-4 h-4 mr-2" />
-            Export CSV
+            Export All CSV
           </Button>
         </div>
 

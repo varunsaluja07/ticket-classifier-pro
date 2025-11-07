@@ -1,7 +1,7 @@
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Loader2, Mail, Calendar } from "lucide-react";
+import { Loader2, Mail, Calendar, Download } from "lucide-react";
 
 interface TicketCardProps {
   ticket: {
@@ -34,6 +34,38 @@ const categoryColors = {
 };
 
 export const TicketCard = ({ ticket, onCategorize }: TicketCardProps) => {
+  const exportTicketToJSON = () => {
+    const dataStr = JSON.stringify(ticket, null, 2);
+    const dataUri = "data:application/json;charset=utf-8," + encodeURIComponent(dataStr);
+    const exportFileDefaultName = `ticket-${ticket.id}-${new Date().toISOString()}.json`;
+    const linkElement = document.createElement("a");
+    linkElement.setAttribute("href", dataUri);
+    linkElement.setAttribute("download", exportFileDefaultName);
+    linkElement.click();
+  };
+
+  const exportTicketToCSV = () => {
+    const headers = ["Field", "Value"];
+    const csvData = [
+      ["Subject", `"${ticket.subject.replace(/"/g, '""')}"`],
+      ["Customer Name", `"${ticket.customer_name.replace(/"/g, '""')}"`],
+      ["Email", ticket.customer_email],
+      ["Category", ticket.category || ""],
+      ["Priority", ticket.priority || ""],
+      ["SLA", ticket.sla || ""],
+      ["Description", `"${ticket.description.replace(/"/g, '""')}"`],
+      ["AI Response", ticket.ai_response ? `"${ticket.ai_response.replace(/"/g, '""')}"` : ""],
+      ["Created At", new Date(ticket.created_at).toLocaleString()],
+    ];
+    const csvContent = [headers, ...csvData].map((row) => row.join(",")).join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv" });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `ticket-${ticket.id}-${new Date().toISOString()}.csv`;
+    a.click();
+  };
+
   return (
     <Card className="p-6 hover:shadow-[var(--shadow-hover)] transition-[var(--transition-smooth)] border-border">
       <div className="space-y-4">
@@ -79,14 +111,34 @@ export const TicketCard = ({ ticket, onCategorize }: TicketCardProps) => {
           </div>
         )}
 
-        {!ticket.category && (
+        <div className="flex gap-2">
+          {!ticket.category && (
+            <Button
+              onClick={onCategorize}
+              className="flex-1 bg-primary hover:bg-primary/90"
+            >
+              Categorize with AI
+            </Button>
+          )}
           <Button
-            onClick={onCategorize}
-            className="w-full bg-primary hover:bg-primary/90"
+            onClick={exportTicketToJSON}
+            variant="outline"
+            size="sm"
+            className="gap-1"
           >
-            Categorize with AI
+            <Download className="w-4 h-4" />
+            JSON
           </Button>
-        )}
+          <Button
+            onClick={exportTicketToCSV}
+            variant="outline"
+            size="sm"
+            className="gap-1"
+          >
+            <Download className="w-4 h-4" />
+            CSV
+          </Button>
+        </div>
       </div>
     </Card>
   );
