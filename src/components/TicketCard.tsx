@@ -13,6 +13,7 @@ interface TicketCardProps {
     date: string;
     category?: string;
     priority?: string;
+    sla?: string;
     suggestedResponse?: string;
   };
   isProcessing: boolean;
@@ -46,12 +47,17 @@ export const TicketCard = ({ ticket, isProcessing, onCategorize }: TicketCardPro
                   {ticket.priority.toUpperCase()}
                 </Badge>
               )}
-              {ticket.category && (
-                <Badge className={categoryColors[ticket.category as keyof typeof categoryColors]}>
-                  {ticket.category}
-                </Badge>
-              )}
-            </div>
+          {ticket.category && (
+            <Badge className={categoryColors[ticket.category as keyof typeof categoryColors]}>
+              {ticket.category}
+            </Badge>
+          )}
+          {ticket.sla && (
+            <Badge variant="outline" className="border-primary text-primary">
+              SLA: {ticket.sla}
+            </Badge>
+          )}
+        </div>
             <div className="flex items-center gap-4 text-sm text-muted-foreground">
               <div className="flex items-center gap-1">
                 <Mail className="w-4 h-4" />

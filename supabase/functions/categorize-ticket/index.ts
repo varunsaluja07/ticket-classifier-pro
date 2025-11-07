@@ -23,7 +23,8 @@ serve(async (req) => {
     const systemPrompt = `You are an AI support ticket categorization system. Analyze support tickets and provide:
 1. Category (one of: Technical, Billing, Feature Request, Bug Report, General)
 2. Priority (one of: high, medium, low)
-3. A professional, helpful response template
+3. SLA (Service Level Agreement): Response time based on priority - High: 4 hours, Medium: 8 hours, Low: 24-48 hours
+4. A professional, helpful response template
 
 Base priority on urgency indicators like "urgent", "critical", "not working", "broken", etc.`;
 
@@ -32,7 +33,7 @@ Subject: ${subject}
 Description: ${description}
 Customer Email: ${customerEmail}
 
-Provide a JSON response with: category, priority, and suggestedResponse.`;
+Provide a JSON response with: category, priority, sla, and suggestedResponse.`;
 
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
@@ -50,7 +51,7 @@ Provide a JSON response with: category, priority, and suggestedResponse.`;
           type: 'function',
           function: {
             name: 'categorize_ticket',
-            description: 'Categorize a support ticket with priority and response',
+            description: 'Categorize a support ticket with priority, SLA, and response',
             parameters: {
               type: 'object',
               properties: {
@@ -62,12 +63,17 @@ Provide a JSON response with: category, priority, and suggestedResponse.`;
                   type: 'string',
                   enum: ['high', 'medium', 'low']
                 },
+                sla: {
+                  type: 'string',
+                  enum: ['4 hours', '8 hours', '24 hours', '48 hours'],
+                  description: 'Service Level Agreement response time'
+                },
                 suggestedResponse: {
                   type: 'string',
                   description: 'A professional response template for the customer'
                 }
               },
-              required: ['category', 'priority', 'suggestedResponse'],
+              required: ['category', 'priority', 'sla', 'suggestedResponse'],
               additionalProperties: false
             }
           }

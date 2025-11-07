@@ -2,7 +2,10 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { TicketCard } from "@/components/TicketCard";
 import { useToast } from "@/hooks/use-toast";
-import { Download, Sparkles, RefreshCw } from "lucide-react";
+import { Download, Sparkles, RefreshCw, Plus, X } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 interface Ticket {
   id: string;
@@ -13,6 +16,7 @@ interface Ticket {
   date: string;
   category?: string;
   priority?: string;
+  sla?: string;
   suggestedResponse?: string;
 }
 
@@ -63,6 +67,13 @@ const initialTickets: Ticket[] = [
 const Index = () => {
   const [tickets, setTickets] = useState(initialTickets);
   const [processingIds, setProcessingIds] = useState<Set<string>>(new Set());
+  const [showForm, setShowForm] = useState(false);
+  const [newTicket, setNewTicket] = useState({
+    subject: "",
+    description: "",
+    customerEmail: "",
+    customerName: "",
+  });
   const { toast } = useToast();
 
   const categorizeTicket = async (ticketId: string) => {
@@ -119,6 +130,7 @@ const Index = () => {
                 ...t,
                 category: result.category,
                 priority: result.priority,
+                sla: result.sla,
                 suggestedResponse: result.suggestedResponse,
               }
             : t
@@ -176,6 +188,31 @@ const Index = () => {
     });
   };
 
+  const createTicket = () => {
+    if (!newTicket.subject || !newTicket.description || !newTicket.customerEmail || !newTicket.customerName) {
+      toast({
+        title: "Missing Fields",
+        description: "Please fill in all fields to create a ticket.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const ticket: Ticket = {
+      id: String(tickets.length + 1),
+      ...newTicket,
+      date: new Date().toISOString().split("T")[0],
+    };
+
+    setTickets((prev) => [ticket, ...prev]);
+    setNewTicket({ subject: "", description: "", customerEmail: "", customerName: "" });
+    setShowForm(false);
+    toast({
+      title: "Ticket Created",
+      description: "New support ticket has been created successfully.",
+    });
+  };
+
   const exportToCSV = () => {
     const headers = [
       "ID",
@@ -186,6 +223,7 @@ const Index = () => {
       "Date",
       "Category",
       "Priority",
+      "SLA",
       "Suggested Response",
     ];
 
@@ -198,6 +236,7 @@ const Index = () => {
       t.date,
       t.category || "",
       t.priority || "",
+      t.sla || "",
       t.suggestedResponse || "",
     ]);
 
@@ -236,6 +275,10 @@ const Index = () => {
         </div>
 
         <div className="flex gap-3 mb-6 flex-wrap">
+          <Button onClick={() => setShowForm(!showForm)} variant="default">
+            <Plus className="mr-2 h-4 w-4" />
+            Create New Ticket
+          </Button>
           <Button onClick={categorizeAll} className="bg-primary hover:bg-primary/90">
             <Sparkles className="mr-2 h-4 w-4" />
             Categorize All Tickets
@@ -253,6 +296,60 @@ const Index = () => {
             Export CSV
           </Button>
         </div>
+
+        {showForm && (
+          <Card className="mb-6">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle>Create New Support Ticket</CardTitle>
+                <Button variant="ghost" size="icon" onClick={() => setShowForm(false)}>
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <label className="text-sm font-medium mb-2 block">Subject</label>
+                <Input
+                  placeholder="Ticket subject"
+                  value={newTicket.subject}
+                  onChange={(e) => setNewTicket({ ...newTicket, subject: e.target.value })}
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium mb-2 block">Description</label>
+                <Textarea
+                  placeholder="Describe the issue"
+                  value={newTicket.description}
+                  onChange={(e) => setNewTicket({ ...newTicket, description: e.target.value })}
+                  rows={4}
+                />
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm font-medium mb-2 block">Customer Name</label>
+                  <Input
+                    placeholder="John Doe"
+                    value={newTicket.customerName}
+                    onChange={(e) => setNewTicket({ ...newTicket, customerName: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium mb-2 block">Customer Email</label>
+                  <Input
+                    type="email"
+                    placeholder="customer@example.com"
+                    value={newTicket.customerEmail}
+                    onChange={(e) => setNewTicket({ ...newTicket, customerEmail: e.target.value })}
+                  />
+                </div>
+              </div>
+              <Button onClick={createTicket} className="w-full">
+                Create Ticket
+              </Button>
+            </CardContent>
+          </Card>
+        )}
 
         <div className="grid gap-4">
           {tickets.map((ticket) => (
