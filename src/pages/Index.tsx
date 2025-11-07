@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { TicketCard } from "@/components/TicketCard";
 import { useToast } from "@/hooks/use-toast";
-import { Download, Sparkles } from "lucide-react";
+import { Download, Sparkles, RefreshCw } from "lucide-react";
 
 interface Ticket {
   id: string;
@@ -152,6 +152,14 @@ const Index = () => {
     }
   };
 
+  const refreshData = () => {
+    setTickets(initialTickets);
+    toast({
+      title: "Data Refreshed",
+      description: "Tickets have been reset to initial state.",
+    });
+  };
+
   const exportToJSON = () => {
     const dataStr = JSON.stringify(tickets, null, 2);
     const dataUri = `data:application/json;charset=utf-8,${encodeURIComponent(dataStr)}`;
@@ -231,6 +239,10 @@ const Index = () => {
           <Button onClick={categorizeAll} className="bg-primary hover:bg-primary/90">
             <Sparkles className="mr-2 h-4 w-4" />
             Categorize All Tickets
+          </Button>
+          <Button onClick={refreshData} variant="outline">
+            <RefreshCw className="mr-2 h-4 w-4" />
+            Refresh Data
           </Button>
           <Button onClick={exportToJSON} variant="outline">
             <Download className="mr-2 h-4 w-4" />
