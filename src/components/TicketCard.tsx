@@ -8,16 +8,15 @@ interface TicketCardProps {
     id: string;
     subject: string;
     description: string;
-    customerEmail: string;
-    customerName: string;
-    date: string;
+    customer_email: string;
+    customer_name: string;
+    created_at: string;
     category?: string;
     priority?: string;
     sla?: string;
-    suggestedResponse?: string;
+    ai_response?: string;
   };
-  isProcessing: boolean;
-  onCategorize: (id: string) => void;
+  onCategorize: () => void;
 }
 
 const priorityColors = {
@@ -34,7 +33,7 @@ const categoryColors = {
   General: "bg-[hsl(var(--category-general))] text-white",
 };
 
-export const TicketCard = ({ ticket, isProcessing, onCategorize }: TicketCardProps) => {
+export const TicketCard = ({ ticket, onCategorize }: TicketCardProps) => {
   return (
     <Card className="p-6 hover:shadow-[var(--shadow-hover)] transition-[var(--transition-smooth)] border-border">
       <div className="space-y-4">
@@ -61,11 +60,11 @@ export const TicketCard = ({ ticket, isProcessing, onCategorize }: TicketCardPro
             <div className="flex items-center gap-4 text-sm text-muted-foreground">
               <div className="flex items-center gap-1">
                 <Mail className="w-4 h-4" />
-                <span>{ticket.customerEmail}</span>
+                <span>{ticket.customer_email}</span>
               </div>
               <div className="flex items-center gap-1">
                 <Calendar className="w-4 h-4" />
-                <span>{ticket.date}</span>
+                <span>{new Date(ticket.created_at).toLocaleDateString()}</span>
               </div>
             </div>
           </div>
@@ -73,27 +72,19 @@ export const TicketCard = ({ ticket, isProcessing, onCategorize }: TicketCardPro
 
         <p className="text-muted-foreground leading-relaxed">{ticket.description}</p>
 
-        {ticket.suggestedResponse && (
+        {ticket.ai_response && (
           <div className="bg-accent/50 rounded-lg p-4 space-y-2 border border-border">
             <h4 className="font-medium text-sm text-foreground">Suggested Response:</h4>
-            <p className="text-sm text-foreground/90 leading-relaxed">{ticket.suggestedResponse}</p>
+            <p className="text-sm text-foreground/90 leading-relaxed">{ticket.ai_response}</p>
           </div>
         )}
 
         {!ticket.category && (
           <Button
-            onClick={() => onCategorize(ticket.id)}
-            disabled={isProcessing}
+            onClick={onCategorize}
             className="w-full bg-primary hover:bg-primary/90"
           >
-            {isProcessing ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Processing...
-              </>
-            ) : (
-              "Categorize with AI"
-            )}
+            Categorize with AI
           </Button>
         )}
       </div>
