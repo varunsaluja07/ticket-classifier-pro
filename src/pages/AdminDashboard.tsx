@@ -31,32 +31,65 @@ const AdminDashboard = () => {
 
   useEffect(() => {
     const checkAuth = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        navigate("/auth");
-        return;
-      }
-      setUser(session.user);
+      try {
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        
+        if (sessionError) {
+          console.error("Session error:", sessionError);
+          toast({
+            title: "Connection Error",
+            description: "Unable to verify authentication. Please try again.",
+            variant: "destructive",
+          });
+          setLoading(false);
+          return;
+        }
+        
+        if (!session) {
+          navigate("/auth");
+          return;
+        }
+        setUser(session.user);
 
-      // Check if user is admin
-      const { data: roles } = await supabase
-        .from("user_roles")
-        .select("role")
-        .eq("user_id", session.user.id)
-        .eq("role", "admin");
+        // Check if user is admin
+        const { data: roles, error: rolesError } = await supabase
+          .from("user_roles")
+          .select("role")
+          .eq("user_id", session.user.id)
+          .eq("role", "admin");
 
-      if (!roles || roles.length === 0) {
+        if (rolesError) {
+          console.error("Roles error:", rolesError);
+          toast({
+            title: "Error",
+            description: "Failed to verify admin access",
+            variant: "destructive",
+          });
+          setLoading(false);
+          return;
+        }
+
+        if (!roles || roles.length === 0) {
+          toast({
+            title: "Access Denied",
+            description: "You don't have admin access",
+            variant: "destructive",
+          });
+          navigate("/");
+          return;
+        }
+
+        setIsAdmin(true);
+        loadTickets();
+      } catch (error) {
+        console.error("Auth check error:", error);
         toast({
-          title: "Access Denied",
-          description: "You don't have admin access",
+          title: "Authentication Error",
+          description: "Please refresh the page or sign in again",
           variant: "destructive",
         });
-        navigate("/");
-        return;
+        setLoading(false);
       }
-
-      setIsAdmin(true);
-      loadTickets();
     };
 
     checkAuth();
