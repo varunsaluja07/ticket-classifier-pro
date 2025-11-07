@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { LogOut, Plus, CheckCircle, Clock } from "lucide-react";
 import { z } from "zod";
+import { LoadingModal } from "@/components/LoadingModal";
 
 const ticketSchema = z.object({
   subject: z.string().min(1, "Subject is required").max(200),
@@ -27,6 +28,7 @@ const UserDashboard = () => {
     customerEmail: "",
   });
   const [loading, setLoading] = useState(false);
+  const [isProcessingAI, setIsProcessingAI] = useState(false);
   const [aiResponse, setAiResponse] = useState<{
     category: string;
     priority: string;
@@ -76,6 +78,9 @@ const UserDashboard = () => {
       setLoading(true);
       setAiResponse(null);
 
+      // Generate a temporary UUID for anonymous users
+      const createdById = user?.id || crypto.randomUUID();
+
       // Insert ticket into database
       const { data: ticketData, error: insertError } = await supabase
         .from("tickets")
@@ -84,17 +89,18 @@ const UserDashboard = () => {
           description: validated.description,
           customer_name: validated.customerName,
           customer_email: validated.customerEmail,
-          created_by: user?.id || null,
+          created_by: createdById,
         })
         .select()
         .single();
 
-      if (insertError) throw insertError;
+      if (insertError) {
+        console.error("Insert error:", insertError);
+        throw insertError;
+      }
 
-      toast({
-        title: "Ticket Created",
-        description: "Analyzing your ticket with AI...",
-      });
+      // Show AI processing modal
+      setIsProcessingAI(true);
 
       // Call AI categorization
       const categorizationResponse = await fetch(
@@ -114,6 +120,7 @@ const UserDashboard = () => {
 
       if (!categorizationResponse.ok) {
         const errorData = await categorizationResponse.json();
+        console.error("Categorization error:", errorData);
         throw new Error(errorData.error || "Failed to categorize ticket");
       }
 
@@ -126,7 +133,7 @@ const UserDashboard = () => {
           category: categorization.category,
           priority: categorization.priority,
           sla: categorization.sla,
-          ai_response: categorization.suggestedResponse,
+          ai_response: categorization.aiResponse || categorization.suggestedResponse,
         })
         .eq("id", ticketData.id);
 
@@ -135,7 +142,14 @@ const UserDashboard = () => {
         // Continue anyway - ticket was created
       }
 
-      setAiResponse(categorization);
+      setAiResponse({
+        category: categorization.category,
+        priority: categorization.priority,
+        sla: categorization.sla,
+        suggestedResponse: categorization.aiResponse || categorization.suggestedResponse,
+      });
+
+      setIsProcessingAI(false);
 
       toast({
         title: "Success",
@@ -150,6 +164,8 @@ const UserDashboard = () => {
       });
     } catch (error: any) {
       console.error("Ticket creation error:", error);
+      setIsProcessingAI(false);
+      
       if (error instanceof z.ZodError) {
         toast({
           title: "Validation Error",
@@ -170,6 +186,8 @@ const UserDashboard = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background to-secondary/20">
+      <LoadingModal isOpen={isProcessingAI} message="Processing with AI" />
+      
       <nav className="border-b bg-card">
         <div className="container mx-auto px-4 py-4 flex justify-between items-center">
           <h1 className="text-2xl font-bold">Support Portal</h1>
