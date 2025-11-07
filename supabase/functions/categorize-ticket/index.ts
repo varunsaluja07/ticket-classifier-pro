@@ -12,7 +12,8 @@ serve(async (req) => {
   }
 
   try {
-    const { subject, description, customerEmail } = await req.json();
+    const body = await req.json();
+    const { subject, description, customer_email: customerEmail } = body.ticket || body;
     console.log('Processing ticket:', { subject, description, customerEmail });
 
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
@@ -114,6 +115,10 @@ Provide a JSON response with: category, priority, and suggestedResponse.`;
       'low': '3 days'
     };
     result.sla = slaMap[result.priority] || '2 days';
+    
+    // Map suggestedResponse to aiResponse for database field
+    result.aiResponse = result.suggestedResponse;
+    delete result.suggestedResponse;
     
     console.log('Categorization result:', result);
 
