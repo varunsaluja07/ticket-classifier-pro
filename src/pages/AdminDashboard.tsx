@@ -4,8 +4,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { LogOut, Download, RefreshCw, BarChart3, AlertCircle, CheckCircle, Clock } from "lucide-react";
+import { LogOut, Download, RefreshCw, BarChart3, AlertCircle, CheckCircle, Clock, Zap } from "lucide-react";
 import { TicketCard } from "@/components/TicketCard";
+import { categorizeTicket as categorizeTicketLocal } from "@/utils/ticketCategorization";
 
 interface Ticket {
   id: string;
@@ -257,6 +258,58 @@ const AdminDashboard = () => {
     });
   };
 
+  const quickCategorizeTickets = async () => {
+    const uncategorizedTickets = tickets.filter(t => !t.category || t.category === "Uncategorized");
+    
+    if (uncategorizedTickets.length === 0) {
+      toast({
+        title: "No Uncategorized Tickets",
+        description: "All tickets are already categorized",
+      });
+      return;
+    }
+
+    setIsProcessing(true);
+    toast({
+      title: "Quick Categorizing",
+      description: `Processing ${uncategorizedTickets.length} tickets with rule-based logic...`,
+    });
+
+    let successCount = 0;
+    let errorCount = 0;
+
+    for (const ticket of uncategorizedTickets) {
+      try {
+        // Use local categorization
+        const localCat = categorizeTicketLocal(ticket.subject, ticket.description);
+        
+        const { error: updateError } = await supabase
+          .from("tickets")
+          .update({
+            category: localCat.category,
+            priority: localCat.priority,
+            sla: localCat.sla,
+          })
+          .eq("id", ticket.id);
+
+        if (updateError) throw updateError;
+        successCount++;
+      } catch (error) {
+        console.error(`Failed to categorize ticket ${ticket.id}:`, error);
+        errorCount++;
+      }
+    }
+    
+    await loadTickets();
+    setIsProcessing(false);
+    
+    toast({
+      title: "Quick Categorization Complete",
+      description: `${successCount} succeeded, ${errorCount} failed`,
+      variant: errorCount > 0 ? "destructive" : "default",
+    });
+  };
+
   const exportToJSON = () => {
     const dataStr = JSON.stringify(tickets, null, 2);
     const dataUri = "data:application/json;charset=utf-8," + encodeURIComponent(dataStr);
@@ -339,6 +392,10 @@ const AdminDashboard = () => {
           <Button onClick={loadTickets} variant="outline">
             <RefreshCw className="w-4 h-4 mr-2" />
             Refresh
+          </Button>
+          <Button onClick={quickCategorizeTickets} variant="outline" disabled={isProcessing}>
+            <Zap className="w-4 h-4 mr-2" />
+            Quick Categorize (Rule-based)
           </Button>
           <Button onClick={categorizeOpenTickets} variant="default" disabled={isProcessing}>
             Categorize with AI

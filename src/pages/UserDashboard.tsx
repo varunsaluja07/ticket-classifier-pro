@@ -12,6 +12,7 @@ import { LogOut, Plus, CheckCircle, Clock, Ticket } from "lucide-react";
 import { z } from "zod";
 import { LoadingModal } from "@/components/LoadingModal";
 import { UserTicketCard } from "@/components/UserTicketCard";
+import { categorizeTicket as categorizeTicketLocal } from "@/utils/ticketCategorization";
 
 const ticketSchema = z.object({
   subject: z.string().min(1, "Subject is required").max(200),
@@ -134,7 +135,15 @@ const UserDashboard = () => {
       // Generate a temporary UUID for anonymous users
       const createdById = user?.id || crypto.randomUUID();
 
-      // Insert ticket into database
+      // Perform instant rule-based categorization
+      const localCategorization = categorizeTicketLocal(
+        validated.subject,
+        validated.description
+      );
+
+      console.log("Local categorization:", localCategorization);
+
+      // Insert ticket into database with preliminary categorization
       const { data: ticketData, error: insertError } = await supabase
         .from("tickets")
         .insert({
@@ -143,6 +152,9 @@ const UserDashboard = () => {
           customer_name: validated.customerName,
           customer_email: validated.customerEmail,
           created_by: createdById,
+          category: localCategorization.category,
+          priority: localCategorization.priority,
+          sla: localCategorization.sla,
         })
         .select()
         .single();
@@ -151,6 +163,12 @@ const UserDashboard = () => {
         console.error("Insert error:", insertError);
         throw insertError;
       }
+
+      // Show instant categorization to user
+      toast({
+        title: "Ticket Created",
+        description: `Categorized as "${localCategorization.category}" - Now enhancing with AI...`,
+      });
 
       // Show AI processing modal
       setIsProcessingAI(true);
@@ -179,7 +197,7 @@ const UserDashboard = () => {
 
       const categorization = await categorizationResponse.json();
       
-      // Update ticket with AI categorization
+      // Update ticket with enhanced AI categorization
       const { error: updateError } = await supabase
         .from("tickets")
         .update({
@@ -192,7 +210,7 @@ const UserDashboard = () => {
 
       if (updateError) {
         console.error("Update error:", updateError);
-        // Continue anyway - ticket was created
+        // Continue anyway - ticket was created with local categorization
       }
 
       setAiResponse({
@@ -206,7 +224,7 @@ const UserDashboard = () => {
 
       toast({
         title: "Success",
-        description: "Ticket created and categorized successfully!",
+        description: "Ticket created with AI-enhanced categorization!",
       });
 
       setNewTicket({
@@ -231,11 +249,32 @@ const UserDashboard = () => {
           variant: "destructive",
         });
       } else {
-        toast({
-          title: "Error",
-          description: error.message || "Failed to create ticket",
-          variant: "destructive",
-        });
+        // If ticket was created but AI failed, still show success
+        if (error.message?.includes("Failed to categorize")) {
+          toast({
+            title: "Ticket Created",
+            description: "Ticket created with basic categorization. AI enhancement failed but your ticket is saved.",
+            variant: "default",
+          });
+          
+          // Clear form on partial success
+          setNewTicket({
+            subject: "",
+            description: "",
+            customerName: "",
+            customerEmail: "",
+          });
+          
+          if (user) {
+            loadMyTickets(user.id);
+          }
+        } else {
+          toast({
+            title: "Error",
+            description: error.message || "Failed to create ticket",
+            variant: "destructive",
+          });
+        }
       }
     } finally {
       setLoading(false);
